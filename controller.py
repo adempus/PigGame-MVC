@@ -6,6 +6,7 @@ class PigGameController(object):
         ''' :param model - is a reference where the game's logic is sored.
             :param view - is a reference where the game's output contents are stored. '''
         self._gameModel = model
+        self._gameModel.setControl(self)
         self._gameView = view
 
     def getPlayers(self):
@@ -17,9 +18,20 @@ class PigGameController(object):
         for count in range(1, self._gameModel.getNumPlayers()+1):
             self._gameView.promptPlayerName(count)
             self._gameModel.declareNewPlayer(str(input()))
+        self._gameModel.startGame()
+
+
+    def getInput(self):
+        '''retrieves player input from the console.'''
+        self._gameView.promptPlayerGo(
+            self._gameModel.getCurrentPlayerTurn().getName()
+        )
+        option = str(input())
+        return option
 
     #TODO
     def endGame(self):
         ''' ends the current game'''
         pass
-        
+
+

@@ -18,6 +18,19 @@ class PigGameView(object):
         alert = playerName+" "+self._pigAlert
         print(alert)
 
+    def promptPlayerBank(self, playerObj):
+        prompt = "Bank "+playerObj.getTurnScore()+" to total score?"
+        print(prompt)
+
+    def promptPlayerGo(self, playerName):
+        ''' prints a textual alert for the player whose turn it is. '''
+        alert = "It's "+str(playerName)+"\'s turn. Enter \'R\' to roll dice."
+        print(alert)
+
+    def viewPlayerStats(self, playerObj):
+        ''':param playerObj - an object of the player currently in play. '''
+        print(str(playerObj))
+
     def alertPlayerDouble(self, playerName):
         alert = playerName+" "+self._doubleAlert+"\n"
         alert += playerName+" must re-roll without banking. "

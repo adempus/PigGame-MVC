@@ -1,4 +1,20 @@
 from random import randint
+import abc
+from enum import Enum
+import asyncio
+
+class RollInterface(abc.ABC):
+    def __init__(self):
+        pass
+
+    @abc.abstractmethod
+    def snakeEyes(self):
+        pass
+
+    @abc.abstractmethod
+    def duplicates(self):
+        pass
+
 
 ''' Represents a single, six-sided playing die with values from 1 to 6. '''
 class Die(object):
@@ -33,9 +49,10 @@ class Die(object):
 
 
 ''' Represents a collection of die objects (Dice) to play with. '''
-class Dice(object):
+class Dice(RollInterface):
     def __init__(self, numDice):
         ''' :param numDice - the number of dice to include in play. '''
+        super().__init__()
         self._numDice = numDice
         self._dice = list()     # a list of face values for the dice rolled
         self._valSum = 0        # a sum of the face values for the rolled dice
@@ -53,12 +70,21 @@ class Dice(object):
         for die in self._dice:
             die.rollDie()
 
-    def getValues(self):
+    def snakeEyes(self):
+        return (len(self._dice) == 2) and (self._dice[0] == self._dice[1] == 1)
+
+    def duplicates(self):
+        if len(self._dice) <= 1: return False
+        else:
+            return len(list(set(self._dice))) == 1
+
+
+    def getDice(self):
         ''' :returns a list of integers representing the face values of dice rolls. '''
         return self._dice
 
     def getValSum(self):
-        return self._valSum
+        return sum(self._dice)
 
     def __str__(self):
         ''' :returns a string representation of dice face values in list format. '''
@@ -72,10 +98,11 @@ class Dice(object):
         return self._numDice
 
 
+
 ''' The player class represents a single player in the game. It contains data about the player like their name, and relevant stats. 
 '''
 class Player(object):
-    def __init__(self, name, dice=Dice()):
+    def __init__(self, name, dice=Dice(1)):
         ''' :param name - the name of the player to display.
             :param dice - playing dice of a specified quantity to be used in-game.
         '''
@@ -104,8 +131,11 @@ class Player(object):
     def rollDice(self):
         self._dice.roll()
 
+    def getDice(self):
+        return self._dice
+
     def getRollResults(self):
-        return self._dice.getValues()
+        return self._dice.getDice()
 
     def bankScore(self):
         ''' "locks in" or adds this player's current turn score to their permanent score. '''
@@ -130,17 +160,26 @@ class Player(object):
         return stringRep
 
 
+class PlayerActions(Enum):
+    Roll, Bank = range(2)
+
 class PigGameModel(object):
-    ''' PigGameModel represents the model component of the MVC. It contains all data and methods related to the game's logic'''
+
+    ''' PigGameModel represents the model component of the MVC. It contains all data and methods related to the game's logic.
+        Ideally, implements a coroutine function to give up control to its caller (the controller), without loosing its state.
+    '''
     def __init__(self, numPlayers, scoreCap=50):
         ''' :param *players - a variable amount of players to play the game.
             :param scoreCap - a maximum score at which the game will be triggered to end once a player reaches. Default max is 50
         '''
         self._players = list()
         self._scoreCap = scoreCap
-        self._currentPlayerTurn = None     # a reference to the player whose turn it is at the moment
-        self._isGameOver = False           # a flag to indicate the end of the game.
-        self._numPlayers = numPlayers       # number of players currently playing
+        self._currentPlayerTurn = None                # a reference to the player whose turn it is at the moment.
+        self._currentPlayerAction = PlayerActions(0)   # input from current player stored as an action
+        self._gameOver = False                       # a flag to indicate the end of the game.
+        self._numPlayers = numPlayers                # number of players currently playing
+        self._ctrlReference = None                  # a reference to the controller
+        self._game = asyncio.get_event_loop()
 
     def getPlayers(self):
         return self._players
@@ -155,6 +194,7 @@ class PigGameModel(object):
         newPlayer = Player(playerName, Dice(2))
         self._setPlayers(newPlayer)
 
+
     def _setPlayers(self, *players):
         ''' utility method for adding a new player to this game's list of players.
             :param a variable number of player objects to initialize the game with.
@@ -162,24 +202,58 @@ class PigGameModel(object):
         for player in players:
             self._players.append(player)
 
+    def setControl(self, controller):
+        self._ctrlReference = controller
+
+    def updatePlayerAction(self, action=None):
+        self._currentPlayerAction = action
+
     def startGame(self):
-        ''' TODO: starts the game '''
-        while self._isGameOver is False:
-            pass
+        self._changePlayerTurn()
+        self._game.run_until_complete(self._gameLoop())
+        self._endGame()
+
+    def _endGame(self):
+        self._game.close()
+
+    async def _gameLoop(self):
+        ''' a coroutine function that drives the game's loop, and doubles as an event loop;
+            changing game state, based on input delegated from the controller. '''
+        while self._gameOver is False:
+            playerIn = self._ctrlReference.getInput()
+            print(str(playerIn))
+            self._checkInput(playerIn)
+            self._performPlayerAction()
+            #TODO: complete the loop
+
+
 
     def checkForWinner(self):
         ''' periodically checks at the end of a player's turn, if a win condition has been met. '''
         for player in self._players:
             if player.getTotalScore() >= self._scoreCap:
                 player.setWin(True)
-                self._isGameOver = True
+                self._gameOver = True
                 return
+
+    def _checkInput(self, playerIn):
+        if str(playerIn).upper() is "R":
+            self._currentPlayerAction = PlayerActions.Roll
+            return
+        elif str(playerIn).upper() is "B":
+            self._currentPlayerAction = PlayerActions.Bank
+            return
+
+    def _performPlayerAction(self):
+        if self._currentPlayerAction is PlayerActions.Roll:
+            self._currentPlayerTurn.rollDice()
+            print("rolled: "+str(self._currentPlayerTurn.getDice()))
 
     def setScoreCap(self, maxScore):
         self._scoreCap = maxScore
 
 
-    def changePlayerTurn(self):
+    def _changePlayerTurn(self):
         ''' sets the current turn to the next player in the list of in-game players. '''
         self._currentPlayerTurn = self._players.pop(0)
         self._players.append(self._currentPlayerTurn)
