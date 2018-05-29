@@ -31,10 +31,18 @@ class PigGameView(object):
         ''':param playerObj - an object of the player currently in play. '''
         print(str(playerObj))
 
-    def alertPlayerDouble(self, playerName):
-        alert = playerName+" "+self._doubleAlert+"\n"
-        alert += playerName+" must re-roll without banking. "
+    def viewPlayerRollResult(self, playerObj):
+        ''' :param playerObj - the player whom to see results for. '''
+        result = playerObj.getName()+" rolled: "+str(playerObj.getDice())+"\nturn total = "+str(playerObj.getRollTotal())
+        print(result)
+
+    def alertPlayerDouble(self, playerObj):
+        ''' :param playerObj - the player whom to alert when they've rolled a non-snake eyes double value. '''
+        alert = playerObj.getName()+" "+self._doubleAlert+"\n"
+        alert += playerObj.getName()+" must re-roll without banking. "
         print(alert)
+
+
 
     def alertEndTurn(self, playerName):
         print(playerName+self._endTurnAlert)

@@ -8,11 +8,11 @@ class RollInterface(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def snakeEyes(self):
+    def isSnakeEyes(self):
         pass
 
     @abc.abstractmethod
-    def duplicates(self):
+    def isDuplicates(self):
         pass
 
 
@@ -70,10 +70,10 @@ class Dice(RollInterface):
         for die in self._dice:
             die.rollDie()
 
-    def snakeEyes(self):
+    def isSnakeEyes(self):
         return (len(self._dice) == 2) and (self._dice[0] == self._dice[1] == 1)
 
-    def duplicates(self):
+    def isDuplicates(self):
         if len(self._dice) <= 1: return False
         else:
             return len(list(set(self._dice))) == 1
@@ -111,6 +111,7 @@ class Player(object):
         self._turnScore = 0     # a tertiary sum of face values accrued from one or more dice rolls in a single turn.
         self._totalScore = 0    # a permanent sum accumulated from values of previously banked turns.
         self._isWinner = False
+        self._isPig = False
 
     def getName(self):
         ''':returns: the name of this player'''
@@ -120,13 +121,16 @@ class Player(object):
         return self._turnScore
 
     def setTurnScore(self, score):
-        self._turnScore = score
+        self._turnScore += score
 
     def getTotalScore(self):
         return self._totalScore
 
     def setTotalScore(self, totalScore):
         self._totalScore = totalScore
+
+    def setPig(self, isPig):
+        self._isPig = isPig
 
     def rollDice(self):
         self._dice.roll()
@@ -136,6 +140,15 @@ class Player(object):
 
     def getRollResults(self):
         return self._dice.getDice()
+
+    def getRollTotal(self):
+        return int(self._dice.getValSum())
+
+    def hasRolledPig(self):
+        return self._dice.isSnakeEyes()
+
+    def hasRolledDupes(self):
+        return self._dice.isDuplicates()
 
     def bankScore(self):
         ''' "locks in" or adds this player's current turn score to their permanent score. '''
@@ -164,7 +177,6 @@ class PlayerActions(Enum):
     Roll, Bank = range(2)
 
 class PigGameModel(object):
-
     ''' PigGameModel represents the model component of the MVC. It contains all data and methods related to the game's logic.
         Ideally, implements a coroutine function to give up control to its caller (the controller), without loosing its state.
     '''
@@ -174,12 +186,12 @@ class PigGameModel(object):
         '''
         self._players = list()
         self._scoreCap = scoreCap
-        self._currentPlayerTurn = None                # a reference to the player whose turn it is at the moment.
+        self._currentPlayerTurn = None                 # a reference to the player whose turn it is at the moment.
         self._currentPlayerAction = PlayerActions(0)   # input from current player stored as an action
-        self._gameOver = False                       # a flag to indicate the end of the game.
-        self._numPlayers = numPlayers                # number of players currently playing
-        self._ctrlReference = None                  # a reference to the controller
-        self._game = asyncio.get_event_loop()
+        self._gameOver = False
+        self._numPlayers = numPlayers
+        self._ctrlReference = None                     # a reference to the controller
+        self._game = asyncio.get_event_loop()          # a reference to the game's loop
 
     def getPlayers(self):
         return self._players
@@ -216,16 +228,6 @@ class PigGameModel(object):
     def _endGame(self):
         self._game.close()
 
-    async def _gameLoop(self):
-        ''' a coroutine function that drives the game's loop, and doubles as an event loop;
-            changing game state, based on input delegated from the controller. '''
-        while self._gameOver is False:
-            playerIn = self._ctrlReference.getInput()
-            print(str(playerIn))
-            self._checkInput(playerIn)
-            self._performPlayerAction()
-            #TODO: complete the loop
-
     def checkForWinner(self):
         ''' periodically checks at the end of a player's turn, if a win condition has been met. '''
         #TODO: Find out if lambdas to stream/filter players would make this more efficient. Loop can cause O(n^2) runtime.
@@ -234,6 +236,18 @@ class PigGameModel(object):
                 player.setWin(True)
                 self._gameOver = True
                 return
+
+    async def _gameLoop(self):
+        ''' a co-routine function that drives the game's loop, and doubles as an event loop;
+            changing game state, based on input delegated from the controller.
+        '''
+        while self._gameOver is False:
+            playerIn = self._ctrlReference.getInput()
+            print(str(playerIn))
+            self._checkInput(playerIn)
+            self._performPlayerAction()
+            self.checkForWinner()
+            #TODO: complete the loop
 
     def _checkInput(self, playerIn):
         if str(playerIn).upper() is "R":
@@ -244,9 +258,25 @@ class PigGameModel(object):
             return
 
     def _performPlayerAction(self):
-        if self._currentPlayerAction is PlayerActions.Roll:
-            self._currentPlayerTurn.rollDice()
-            print("rolled: "+str(self._currentPlayerTurn.getDice()))
+        currPlayer = self._currentPlayerTurn
+        if currPlayer is PlayerActions.Roll:
+            currPlayer.rollDice()
+            if currPlayer.hasRolledPig():
+                currPlayer.resetTotalScore()
+                self._changePlayerTurn()
+            elif currPlayer.hasRolledDupes():
+                pass
+            else:
+                currPlayer.setTurnScore(
+                    currPlayer.getRollTotal()
+                )
+        elif self._currentPlayerAction is PlayerActions.Bank:
+            currPlayer.bankScore()
+            self._changePlayerTurn()
+            #print("rolled: "+str(self._currentPlayerTurn.getDice()))
+
+    def _performGameAction(self):
+        pass
 
     def setScoreCap(self, maxScore):
         self._scoreCap = maxScore

@@ -31,6 +31,13 @@ class PigGameController(object):
         option = str(input())
         return option
 
+    def notify(self, playerMove):
+        '''method for the model to invoke when a player's move has been made.
+          :param playerMove - the player whose move it currently is
+        '''
+
+
+
     #TODO
     def endGame(self):
         ''' ends the current game'''
