@@ -14,14 +14,16 @@ class PigGameController(object):
         return self._gameModel.getPlayers()
 
     def initGame(self):
-        '''starts the game '''
+        '''sets the game up, then starts it. '''
         for count in range(1, self._gameModel.getNumPlayers()+1):
             self._gameView.promptPlayerName(count)
             self._gameModel.declareNewPlayer(str(input()))
         self._gameModel.startGame()
 
 
+    #TODO figure out coordination between this method and the model's game loop
     def getInput(self):
+        #TODO if statements to split up view displays with corresponding model states; for input.
         '''retrieves player input from the console.'''
         self._gameView.promptPlayerGo(
             self._gameModel.getCurrentPlayerTurn().getName()

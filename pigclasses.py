@@ -226,10 +226,9 @@ class PigGameModel(object):
             self._performPlayerAction()
             #TODO: complete the loop
 
-
-
     def checkForWinner(self):
         ''' periodically checks at the end of a player's turn, if a win condition has been met. '''
+        #TODO: Find out if lambdas to stream/filter players would make this more efficient. Loop can cause O(n^2) runtime.
         for player in self._players:
             if player.getTotalScore() >= self._scoreCap:
                 player.setWin(True)
